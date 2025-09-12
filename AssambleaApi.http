@@ -1,0 +1,6 @@
+@AssambleaApi_HostAddress = http://localhost:5096
+
+GET {{AssambleaApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

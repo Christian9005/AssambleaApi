@@ -1,0 +1,21 @@
+﻿using System.Text.Json.Serialization;
+
+namespace AssambleaApi.Models;
+
+public class Attendee
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int SeatNumber { get; set; }
+    public bool IsRegistered { get; set; }
+    public bool RequestedToSpeak { get; set; }
+    public VoteOption? Vote { get; set; }
+    public int MeetingId { get; set; }
+    public bool IsSpeaking { get; set; }
+    public bool InterventionAccepted { get; set; }
+    public DateTime? InterventionStartTime { get; set; }
+    public DateTime? InterventionAcceptDeadline { get; set; }
+
+    [JsonIgnore]
+    public Meeting Meeting { get; set; } = null!;
+}
