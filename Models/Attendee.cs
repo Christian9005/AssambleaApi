@@ -10,6 +10,7 @@ public class Attendee
     public bool IsRegistered { get; set; }
     public bool RequestedToSpeak { get; set; }
     public VoteOption? Vote { get; set; }
+    public VoteOption? SecondVote { get; set; }
     public int MeetingId { get; set; }
     public bool IsSpeaking { get; set; }
     public bool InterventionAccepted { get; set; }

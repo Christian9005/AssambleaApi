@@ -20,10 +20,10 @@ public class AttendeeService : IAttendeeService
         if (attendee == null)
             throw new KeyNotFoundException($"Attendee with ID {attendeeId} not found.");
 
-    attendee.InterventionAccepted = true;
-    attendee.IsSpeaking = true;
-    attendee.InterventionStartTime = DateTime.UtcNow;
-    attendee.InterventionAcceptDeadline = null; // ya no aplica el deadline de aceptación
+        attendee.InterventionAccepted = true;
+        attendee.IsSpeaking = true;
+        attendee.InterventionStartTime = DateTimeOffset.UtcNow;
+        attendee.InterventionAcceptDeadline = null; // ya no aplica el deadline de aceptación
         await _context.SaveChangesAsync();
         return true;
     }
@@ -46,11 +46,32 @@ public class AttendeeService : IAttendeeService
     {
         var attendee = await _context.Attendees.FindAsync(attendeeId);
         if (attendee == null)
-        {
             throw new KeyNotFoundException($"Attendee with ID {attendeeId} not found.");
+
+        var meeting = await _context.Meetings.FindAsync(attendee.MeetingId);
+        if (meeting == null)
+            throw new KeyNotFoundException($"Meeting with ID {attendee?.MeetingId} not found.");
+
+        switch (meeting.Status)
+        {
+            case MeetingStatus.FirstVoting:
+                // Evita doble voto en primera ronda (opcional)
+                if (attendee.Vote.HasValue)
+                    throw new InvalidOperationException("El asistente ya registró su voto en la primera votación.");
+                attendee.Vote = vote;
+                break;
+
+            case MeetingStatus.SecondVoting:
+                // Evita doble voto en segunda ronda (opcional)
+                if (attendee.SecondVote.HasValue)
+                    throw new InvalidOperationException("El asistente ya registró su voto en la segunda votación.");
+                attendee.SecondVote = vote;
+                break;
+
+            default:
+                throw new InvalidOperationException("La reunión no está en fase de votación.");
         }
 
-        attendee.Vote = vote;
         await _context.SaveChangesAsync();
     }
 
@@ -149,7 +170,7 @@ public class AttendeeService : IAttendeeService
         if (attendee.InterventionAccepted)
             return true;
 
-        if (attendee.InterventionAcceptDeadline.HasValue && DateTime.UtcNow > attendee.InterventionAcceptDeadline.Value)
+        if (attendee.InterventionAcceptDeadline.HasValue && DateTimeOffset.UtcNow > attendee.InterventionAcceptDeadline.Value)
         {
             attendee.RequestedToSpeak = false;
             attendee.InterventionAcceptDeadline = null;
@@ -166,7 +187,7 @@ public class AttendeeService : IAttendeeService
             return null;
 
     var next = pending[0];
-    next.InterventionAcceptDeadline = DateTime.UtcNow.AddMinutes(1); // 1 minuto para aceptar
+    next.InterventionAcceptDeadline = DateTimeOffset.UtcNow.AddMinutes(1); // 1 minuto para aceptar
         await _context.SaveChangesAsync();
         return next;
     }
@@ -177,7 +198,7 @@ public class AttendeeService : IAttendeeService
     /// </summary>
     public async Task<(Attendee? expiredSpeaker, Attendee? next, bool changed)> ProcessExpirationsAsync(int meetingId)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTimeOffset.UtcNow;
         Attendee? expiredSpeaker = null;
         bool changed = false;
 
@@ -221,6 +242,6 @@ public class AttendeeService : IAttendeeService
             next = await MoveToNextInterventionAsync(meetingId);
         }
 
-    return (expiredSpeaker, next, changed);
+        return (expiredSpeaker, next, changed);
     }
 }
