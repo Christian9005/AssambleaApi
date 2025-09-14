@@ -13,8 +13,8 @@ public class Attendee
     public int MeetingId { get; set; }
     public bool IsSpeaking { get; set; }
     public bool InterventionAccepted { get; set; }
-    public DateTime? InterventionStartTime { get; set; }
-    public DateTime? InterventionAcceptDeadline { get; set; }
+    public DateTimeOffset? InterventionStartTime { get; set; }
+    public DateTimeOffset? InterventionAcceptDeadline { get; set; }
 
     [JsonIgnore]
     public Meeting Meeting { get; set; } = null!;
