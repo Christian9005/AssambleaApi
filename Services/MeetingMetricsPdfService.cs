@@ -71,6 +71,16 @@ public class MeetingMetricsPdfService
             y += 18;
         }
 
+        y += 10;
+        gfx.DrawString("Second Voting Results:", font, XBrushes.Black, new XRect(40, y, page.Width, page.Height), XStringFormats.TopLeft);
+        y += 20;
+        var secondVoteGroups = meeting.Attendees.Where(a => a.Vote.HasValue).GroupBy(a => a.SecondVote);
+        foreach (var group in voteGroups)
+        {
+            gfx.DrawString($"{group.Key}: {group.Count()}", font, XBrushes.Black, new XRect(60, y, page.Width, page.Height), XStringFormats.TopLeft);
+            y += 18;
+        }
+
         using var ms = new MemoryStream();
         document.Save(ms, false);
         return ms.ToArray();

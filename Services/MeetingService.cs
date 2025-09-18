@@ -50,6 +50,12 @@ public class MeetingService : IMeetingService
         if (meeting == null) throw new KeyNotFoundException($"Meeting with ID {meetingId} not found.");
 
         meeting.Status = status;
+
+        if (status == MeetingStatus.Closed)
+        {
+            meeting.EndTime = DateTimeOffset.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
     }
 }
