@@ -1,17 +1,41 @@
 using AssambleaApi.Models;
 using PdfSharpCore.Pdf;
 using PdfSharpCore.Drawing;
+using PdfSharpCore.Fonts;
 using System.IO;
 using System.Linq;
 
+public class DejaVuFontResolver : IFontResolver
+{
+    private static readonly byte[] DejaVuSansData = File.ReadAllBytes("Fonts/DejaVuSans.ttf");
+
+    public string DefaultFontName => throw new NotImplementedException();
+
+    public byte[] GetFont(string faceName)
+    {
+        return DejaVuSansData;
+    }
+
+    public FontResolverInfo ResolveTypeface(string familyName, bool isBold, bool isItalic)
+    {
+        // Always return the same font for any style
+        return new FontResolverInfo("DejaVuSans#");
+    }
+}
+
 public class MeetingMetricsPdfService
 {
+    static MeetingMetricsPdfService()
+    {
+        GlobalFontSettings.FontResolver = new DejaVuFontResolver();
+    }
+
     public byte[] GenerateMetricsPdf(Meeting meeting)
     {
         var document = new PdfDocument();
         var page = document.AddPage();
         var gfx = XGraphics.FromPdfPage(page);
-        var font = new XFont("DejaVu Sans", 12, XFontStyle.Regular);
+        var font = new XFont("DejaVuSans#", 12, XFontStyle.Regular);
 
         double y = 40;
 
