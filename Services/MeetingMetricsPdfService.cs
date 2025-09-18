@@ -11,7 +11,7 @@ public class MeetingMetricsPdfService
         var document = new PdfDocument();
         var page = document.AddPage();
         var gfx = XGraphics.FromPdfPage(page);
-        var font = new XFont("Arial", 12, XFontStyle.Regular);
+        var font = new XFont("DejaVu Sans", 12, XFontStyle.Regular);
 
         double y = 40;
 
