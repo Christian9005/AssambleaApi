@@ -184,6 +184,68 @@ public class AttendeesController : ControllerBase
         });
     }
 
+    [HttpPost("{id}/confirm-first-vote")]
+    public async Task<IActionResult> ConfirmFirstVote(int id)
+    {
+        try
+        {
+            await _attendeeService.ConfirmReadyForFirstVoteAsync(id);
+
+            var attendee = await _attendeeService.GetByIdAsync(id);
+            if (attendee?.MeetingId != null)
+            {
+                await _hubContext.Clients.Group(attendee.MeetingId.ToString())
+                    .SendAsync("AttendeeReadyForVote", new
+                    {
+                        AttendeeId = attendee.Id,
+                        Name = attendee.Name,
+                        SeatNumber = attendee.SeatNumber,
+                        VoteRound = "First",
+                        ReadyForFirstVote = attendee.ReadyForFirstVote
+                    });
+
+                await BroadcastMeetingAsync(attendee.MeetingId);
+            }
+
+            return Ok(new { message = "Asistencia confirmada para primera votación" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/confirm-second-vote")]
+    public async Task<IActionResult> ConfirmSecondVote(int id)
+    {
+        try
+        {
+            await _attendeeService.ConfirmReadyForSecondVoteAsync(id);
+
+            var attendee = await _attendeeService.GetByIdAsync(id);
+            if (attendee?.MeetingId != null)
+            {
+                await _hubContext.Clients.Group(attendee.MeetingId.ToString())
+                    .SendAsync("AttendeeReadyForVote", new
+                    {
+                        AttendeeId = attendee.Id,
+                        Name = attendee.Name,
+                        SeatNumber = attendee.SeatNumber,
+                        VoteRound = "Second",
+                        ReadyForSecondVote = attendee.ReadyForSecondVote
+                    });
+
+                await BroadcastMeetingAsync(attendee.MeetingId);
+            }
+
+            return Ok(new { message = "Asistencia confirmada para segunda votación" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     private async Task BroadcastMeetingAsync(int meetingId)
     {
         var meeting = await _meetingService.GetMeetingByIdAsync(meetingId);

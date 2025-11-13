@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AssambleaApi.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AssambleaApi.Data;
 
@@ -9,6 +10,7 @@ public class AppDbContext : DbContext
     }
     public DbSet<Models.Meeting> Meetings { get; set; } = null!;
     public DbSet<Models.Attendee> Attendees { get; set; } = null!;
+    public DbSet<User> Users { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Models.Meeting>()

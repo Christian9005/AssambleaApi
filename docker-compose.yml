@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:15
+    container_name: assamblea-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgrespw
+      - POSTGRES_DB=assamblea
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - assamblea-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assamblea-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=assamblea;Username=postgres;Password=postgrespw
+    ports:
+      - "8080:80"
+    networks:
+      - assamblea-network
+    restart: on-failure
+
+  frontend:
+    build:
+      context: ../dashboard-asamblea
+      dockerfile: Dockerfile
+    container_name: assamblea-frontend
+    depends_on:
+      - api
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+    ports:
+      - "3000:80"
+    networks:
+      - assamblea-network
+    restart: on-failure
+
+volumes:
+  db-data:
+
+networks:
+  assamblea-network:
+    driver: bridge

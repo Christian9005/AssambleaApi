@@ -244,4 +244,24 @@ public class AttendeeService : IAttendeeService
 
         return (expiredSpeaker, next, changed);
     }
+
+    public async Task ConfirmReadyForFirstVoteAsync(int id)
+    {
+        var attendee = await _context.Attendees.FindAsync(id);
+        if (attendee == null)
+            throw new InvalidOperationException("Asistente no encontrado");
+
+        attendee.ReadyForFirstVote = true;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task ConfirmReadyForSecondVoteAsync(int id)
+    {
+        var attendee = await _context.Attendees.FindAsync(id);
+        if (attendee == null)
+            throw new InvalidOperationException("Asistente no encontrado");
+
+        attendee.ReadyForSecondVote = true;
+        await _context.SaveChangesAsync();
+    }
 }

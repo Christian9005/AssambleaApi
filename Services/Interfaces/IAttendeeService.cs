@@ -17,4 +17,6 @@ public interface IAttendeeService
     Task<bool> CheckInterventionAcceptDeadlineAsync(int attendeeId);
     Task<Attendee?> MoveToNextInterventionAsync(int meetingId);
     Task<(Attendee? expiredSpeaker, Attendee? next, bool changed)> ProcessExpirationsAsync(int meetingId);
+    Task ConfirmReadyForFirstVoteAsync(int id);
+    Task ConfirmReadyForSecondVoteAsync(int id);
 }

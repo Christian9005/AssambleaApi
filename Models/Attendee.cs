@@ -16,6 +16,8 @@ public class Attendee
     public bool InterventionAccepted { get; set; }
     public DateTimeOffset? InterventionStartTime { get; set; }
     public DateTimeOffset? InterventionAcceptDeadline { get; set; }
+    public bool ReadyForFirstVote { get; set; }
+    public bool ReadyForSecondVote { get; set; }
 
     [JsonIgnore]
     public Meeting Meeting { get; set; } = null!;
