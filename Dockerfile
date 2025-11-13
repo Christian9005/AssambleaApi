@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy csproj and restore
@@ -11,7 +11,7 @@ COPY . .
 RUN dotnet publish "AssambleaApi.csproj" -c Release -o /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
 # Install fonts for PdfSharpCore
@@ -19,5 +19,7 @@ RUN apt-get update && apt-get install -y fonts-dejavu-core && rm -rf /var/lib/ap
 
 COPY --from=build /app/publish .
 
-EXPOSE 80
+# Railway inyecta el puerto dinámicamente mediante la variable PORT
+# ASP.NET Core 8 lo lee automáticamente con ConfigureKestrel
+
 ENTRYPOINT ["dotnet", "AssambleaApi.dll"]

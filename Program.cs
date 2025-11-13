@@ -10,6 +10,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurar puerto para Railway (lee PORT o usa 5000 por defecto)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(int.Parse(port));
+});
+
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -65,20 +72,19 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers()
     .AddJsonOptions(options => { });
 
-// CORS policy
+// CORS policy - Permitir todas las origins en producción para Railway
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ??
-                             new[] { "http://localhost:3000", "http://localhost", "http://127.0.0.1" };
+                             new[] { "*" };
 
         if (allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
         {
             policy.AllowAnyOrigin()
                   .AllowAnyHeader()
                   .AllowAnyMethod()
-                  // Expose headers needed by browser clients to handle downloads
                   .WithExposedHeaders("Content-Disposition", "Content-Length", "Content-Type");
         }
         else
@@ -126,11 +132,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsProduction())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Habilitar Swagger siempre
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowFrontend");
 
