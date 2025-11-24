@@ -148,6 +148,7 @@ public class AttendeeService : IAttendeeService
     public async Task<List<Attendee>> GetPendingInterventionsAsync(int meetingId)
     {
         return await _context.Attendees
+            .AsNoTracking()
             .Where(a => a.MeetingId == meetingId && a.RequestedToSpeak && !a.InterventionAccepted)
             .OrderBy(a => a.InterventionAcceptDeadline)
             .ToListAsync();
@@ -156,6 +157,7 @@ public class AttendeeService : IAttendeeService
     public async Task<Attendee?> GetCurrentSpeakerAsync(int meetingId)
     {
         return await _context.Attendees
+            .AsNoTracking()
             .Where(a => a.MeetingId == meetingId && a.InterventionAccepted && a.IsSpeaking)
             .OrderBy(a => a.InterventionStartTime)
             .FirstOrDefaultAsync();

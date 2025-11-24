@@ -65,7 +65,8 @@ builder.Services.AddScoped<IAttendeeService, AttendeeService>();
 builder.Services.AddScoped<IMeetingService, MeetingService>();
 builder.Services.AddHostedService<InterventionMonitorService>();
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddMessagePackProtocol(); // MessagePack es 50-70% más pequeño y rápido que JSON
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

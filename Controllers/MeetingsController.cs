@@ -48,16 +48,29 @@ public class MeetingsController : ControllerBase
         return Ok(meeting);
     }
 
+    [HttpGet("{id}/summary")]
+    public async Task<IActionResult> GetMeetingSummary(int id, [FromQuery] bool includeAttendees = false)
+    {
+        var meetingDto = await _meetingService.GetMeetingUpdateDtoAsync(id, includeAttendees);
+        if (meetingDto == null)
+        {
+            return NotFound();
+        }
+        return Ok(meetingDto);
+    }
+
     [HttpPut("{id}/status")]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] MeetingStatus status)
     {
         await _meetingService.UpdateStatusAsync(id, status);
 
-        var meeting = await _meetingService.GetMeetingByIdAsync(id);
-        await _hubContext.Clients.Group(id.ToString()).SendAsync("MeetingStatusUpdated", meeting);
+        var meetingDto = await _meetingService.GetMeetingUpdateDtoAsync(id, includeAttendees: false);
+        await _hubContext.Clients.Group(id.ToString()).SendAsync("MeetingStatusUpdated", meetingDto);
 
         if (status == MeetingStatus.Closed)
         {
+            // Para el PDF necesitamos el Meeting completo
+            var meeting = await _meetingService.GetMeetingByIdAsync(id);
             var pdfService = new MeetingMetricsPdfService();
             var pdfBytes = pdfService.GenerateMetricsPdf(meeting);
 

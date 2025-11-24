@@ -248,8 +248,8 @@ public class AttendeesController : ControllerBase
 
     private async Task BroadcastMeetingAsync(int meetingId)
     {
-        var meeting = await _meetingService.GetMeetingByIdAsync(meetingId);
+        var meetingDto = await _meetingService.GetMeetingUpdateDtoAsync(meetingId, includeAttendees: false);
         await _hubContext.Clients.Group(meetingId.ToString())
-            .SendAsync("MeetingStatusUpdated", meeting);
+            .SendAsync("MeetingStatusUpdated", meetingDto);
     }
 }

@@ -80,12 +80,13 @@ public class InterventionMonitorService : BackgroundService
             }
             if (changed)
             {
-                // broadcast meeting status after any change
-                var meeting = await db.Meetings.Include(m => m.Attendees).FirstOrDefaultAsync(m => m.Id == meetingId, ct);
-                if (meeting != null)
+                // broadcast meeting status after any change usando DTO ligero
+                var meetingService = scope.ServiceProvider.GetRequiredService<IMeetingService>();
+                var meetingDto = await meetingService.GetMeetingUpdateDtoAsync(meetingId, includeAttendees: false);
+                if (meetingDto != null)
                 {
                     await _hubContext.Clients.Group(meetingId.ToString())
-                        .SendAsync("MeetingStatusUpdated", meeting, ct);
+                        .SendAsync("MeetingStatusUpdated", meetingDto, ct);
                 }
             }
         }
