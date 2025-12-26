@@ -4,13 +4,15 @@ using AssambleaApi.Services.Interfaces;
 using AssambleaApi.Services;
 using AssambleaApi.Hubs;
 using AssambleaApi.Background;
+using AssambleaApi.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar puerto para Railway (lee PORT o usa 5000 por defecto)
+// Configurar puerto para Railway
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -43,7 +45,6 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
 
-    // Para SignalR
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -65,21 +66,69 @@ builder.Services.AddScoped<IAttendeeService, AttendeeService>();
 builder.Services.AddScoped<IMeetingService, MeetingService>();
 builder.Services.AddHostedService<InterventionMonitorService>();
 
-builder.Services.AddSignalR()
-    .AddMessagePackProtocol(); // MessagePack es 50-70% más pequeño y rápido que JSON
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Configurar Swagger con soporte JWT
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Asamblea API - Sistema de Voto Electrónico", 
+        Version = "v1",
+        Description = "API para gestión de asambleas con autenticación JWT y código de meeting"
+    });
+    
+    // Definir esquema de seguridad JWT
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header usando esquema Bearer. Ejemplo: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+    // Definir esquema de headers para código de meeting
+    c.AddSecurityDefinition("MeetingCode", new OpenApiSecurityScheme
+    {
+        Description = "Headers requeridos: X-Meeting-Code y X-Meeting-Id",
+        Name = "X-Meeting-Code",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey
+    });
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => { });
 
-// CORS policy - Permitir todas las origins en producción para Railway
+// CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ??
-                             new[] { "*" };
+                             new[] 
+                             { 
+                                 "http://localhost:3000",
+                                 "http://localhost",
+                                 "https://asambleadashboard.netlify.app"
+                             };
 
         if (allowedOrigins.Length == 1 && allowedOrigins[0] == "*")
         {
@@ -102,7 +151,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Aplicar migraciones automáticamente al iniciar (con reintentos mientras la BD se inicia)
+// Aplicar migraciones automáticamente
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -132,17 +181,27 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline.
-// Habilitar Swagger siempre
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Asamblea API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
+
+// Middleware personalizado para validar código de meeting
+app.UseMiddleware<MeetingCodeAuthMiddleware>();
+
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<MeetingHub>("/meetingHub").RequireCors("AllowFrontend");
+
+app.Logger.LogInformation("🚀 Asamblea API iniciada en el puerto {Port}", port);
+app.Logger.LogInformation("📖 Swagger UI disponible en: /swagger");
+app.Logger.LogInformation("🔐 Autenticación: JWT Bearer Token o Meeting Code");
 
 await app.RunAsync();

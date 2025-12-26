@@ -23,7 +23,7 @@ public class AttendeeService : IAttendeeService
         attendee.InterventionAccepted = true;
         attendee.IsSpeaking = true;
         attendee.InterventionStartTime = DateTimeOffset.UtcNow;
-        attendee.InterventionAcceptDeadline = null; // ya no aplica el deadline de aceptación
+        attendee.InterventionAcceptDeadline = null;
         await _context.SaveChangesAsync();
         return true;
     }
@@ -44,32 +44,41 @@ public class AttendeeService : IAttendeeService
 
     public async Task CastVoteAsync(int attendeeId, VoteOption vote)
     {
-        var attendee = await _context.Attendees.FindAsync(attendeeId);
+        var attendee = await _context.Attendees
+            .Include(a => a.Meeting)
+            .FirstOrDefaultAsync(a => a.Id == attendeeId);
+
         if (attendee == null)
-            throw new KeyNotFoundException($"Attendee with ID {attendeeId} not found.");
+            throw new KeyNotFoundException($"Asistente con ID {attendeeId} not found.");
 
-        var meeting = await _context.Meetings.FindAsync(attendee.MeetingId);
+        var meeting = attendee.Meeting;
         if (meeting == null)
-            throw new KeyNotFoundException($"Meeting with ID {attendee?.MeetingId} not found.");
+            throw new KeyNotFoundException($"Meeting no encontrada.");
 
-        switch (meeting.Status)
+        // Validar que el asistente esté listo para votar
+        if (meeting.Status == MeetingStatus.FirstVoting)
         {
-            case MeetingStatus.FirstVoting:
-                // Evita doble voto en primera ronda (opcional)
-                if (attendee.Vote.HasValue)
-                    throw new InvalidOperationException("El asistente ya registró su voto en la primera votación.");
-                attendee.Vote = vote;
-                break;
+            if (!attendee.ReadyForFirstVote)
+                throw new InvalidOperationException("Debe confirmar su asistencia para la primera votación");
 
-            case MeetingStatus.SecondVoting:
-                // Evita doble voto en segunda ronda (opcional)
-                if (attendee.SecondVote.HasValue)
-                    throw new InvalidOperationException("El asistente ya registró su voto en la segunda votación.");
-                attendee.SecondVote = vote;
-                break;
+            if (attendee.Vote.HasValue)
+                throw new InvalidOperationException("Ya registró su voto en la primera votación");
 
-            default:
-                throw new InvalidOperationException("La reunión no está en fase de votación.");
+            attendee.Vote = vote;
+        }
+        else if (meeting.Status == MeetingStatus.SecondVoting)
+        {
+            if (!attendee.ReadyForSecondVote)
+                throw new InvalidOperationException("Debe confirmar su asistencia para la segunda votación");
+
+            if (attendee.SecondVote.HasValue)
+                throw new InvalidOperationException("Ya registró su voto en la segunda votación");
+
+            attendee.SecondVote = vote;
+        }
+        else
+        {
+            throw new InvalidOperationException("La reunión no está en periodo de votación");
         }
 
         await _context.SaveChangesAsync();
@@ -117,7 +126,21 @@ public class AttendeeService : IAttendeeService
 
         if (meeting == null)
         {
-            throw new KeyNotFoundException($"Codigo Incorrecto");
+            throw new UnauthorizedAccessException("Código de meeting inválido");
+        }
+
+        if (meeting.Status == MeetingStatus.Closed)
+        {
+            throw new InvalidOperationException("El meeting está cerrado");
+        }
+
+        // Verificar que no exista otro asistente con el mismo número de asiento
+        var existingAttendee = await _context.Attendees
+            .FirstOrDefaultAsync(a => a.MeetingId == meetingId && a.SeatNumber == seatNumber);
+
+        if (existingAttendee != null)
+        {
+            throw new InvalidOperationException($"El asiento {seatNumber} ya está ocupado");
         }
 
         var attendee = new Attendee
@@ -139,6 +162,11 @@ public class AttendeeService : IAttendeeService
         if (attendee == null)
         {
             throw new KeyNotFoundException($"Attendee with ID {attendeeId} not found.");
+        }
+
+        if (!attendee.IsRegistered)
+        {
+            throw new InvalidOperationException("Debe marcar asistencia antes de solicitar la palabra");
         }
 
         attendee.RequestedToSpeak = true;
@@ -188,31 +216,28 @@ public class AttendeeService : IAttendeeService
         if (pending.Count == 0)
             return null;
 
-    var next = pending[0];
-    next.InterventionAcceptDeadline = DateTimeOffset.UtcNow.AddMinutes(1); // 1 minuto para aceptar
+        var next = pending[0];
+        next.InterventionAcceptDeadline = DateTimeOffset.UtcNow.AddMinutes(1);
         await _context.SaveChangesAsync();
         return next;
     }
 
-    /// <summary>
-    /// Revisa y aplica expiraciones: aceptación (1 min) y duración de intervención (5 min).
-    /// Si algo expira, avanza al siguiente y devuelve el nuevo estado (next, ended, cancelled).
-    /// </summary>
     public async Task<(Attendee? expiredSpeaker, Attendee? next, bool changed)> ProcessExpirationsAsync(int meetingId)
     {
         var now = DateTimeOffset.UtcNow;
         Attendee? expiredSpeaker = null;
         bool changed = false;
 
-        // 1. Revisar si algún aceptante pendiente expiró su deadline de aceptación
+        // 1. Revisar pendientes que expiraron deadline de aceptación
         var pending = await _context.Attendees
             .Where(a => a.MeetingId == meetingId && a.RequestedToSpeak && !a.InterventionAccepted && a.InterventionAcceptDeadline != null && a.InterventionAcceptDeadline < now)
             .ToListAsync();
+        
         if (pending.Any())
         {
             foreach (var p in pending)
             {
-                p.RequestedToSpeak = false; // lo sacamos de la cola
+                p.RequestedToSpeak = false;
                 p.InterventionAcceptDeadline = null;
             }
             changed = true;
@@ -222,9 +247,8 @@ public class AttendeeService : IAttendeeService
         var current = await GetCurrentSpeakerAsync(meetingId);
         if (current != null && current.InterventionStartTime.HasValue && current.InterventionStartTime.Value.AddMinutes(5) < now)
         {
-            // Expiró su intervención
             current.IsSpeaking = false;
-            current.InterventionAccepted = false; // ya terminó
+            current.InterventionAccepted = false;
             current.InterventionStartTime = null;
             current.RequestedToSpeak = false;
             expiredSpeaker = current;
@@ -236,8 +260,8 @@ public class AttendeeService : IAttendeeService
             await _context.SaveChangesAsync();
         }
 
-        // 3. Si no hay orador activo, intentar asignar siguiente (si existe)
-        current = await GetCurrentSpeakerAsync(meetingId); // refrescar
+        // 3. Si no hay orador activo, intentar asignar siguiente
+        current = await GetCurrentSpeakerAsync(meetingId);
         Attendee? next = null;
         if (current == null)
         {
@@ -253,6 +277,9 @@ public class AttendeeService : IAttendeeService
         if (attendee == null)
             throw new InvalidOperationException("Asistente no encontrado");
 
+        if (!attendee.IsRegistered)
+            throw new InvalidOperationException("Debe marcar asistencia primero");
+
         attendee.ReadyForFirstVote = true;
         await _context.SaveChangesAsync();
     }
@@ -262,6 +289,9 @@ public class AttendeeService : IAttendeeService
         var attendee = await _context.Attendees.FindAsync(id);
         if (attendee == null)
             throw new InvalidOperationException("Asistente no encontrado");
+
+        if (!attendee.IsRegistered)
+            throw new InvalidOperationException("Debe marcar asistencia primero");
 
         attendee.ReadyForSecondVote = true;
         await _context.SaveChangesAsync();

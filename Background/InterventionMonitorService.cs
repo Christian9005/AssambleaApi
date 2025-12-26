@@ -52,8 +52,12 @@ public class InterventionMonitorService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var attendeeService = scope.ServiceProvider.GetRequiredService<IAttendeeService>();
-
-        var meetingIds = await db.Meetings.Select(m => m.Id).ToListAsync(ct);
+        
+        var meetingIds = await db.Meetings
+            .Where(m => m.Status != Models.MeetingStatus.Closed)
+            .Select(m => m.Id)
+            .ToListAsync(ct);
+        
         foreach (var meetingId in meetingIds)
         {
             var (expiredSpeaker, next, changed) = await attendeeService.ProcessExpirationsAsync(meetingId);
@@ -80,7 +84,6 @@ public class InterventionMonitorService : BackgroundService
             }
             if (changed)
             {
-                // broadcast meeting status after any change usando DTO ligero
                 var meetingService = scope.ServiceProvider.GetRequiredService<IMeetingService>();
                 var meetingDto = await meetingService.GetMeetingUpdateDtoAsync(meetingId, includeAttendees: false);
                 if (meetingDto != null)
