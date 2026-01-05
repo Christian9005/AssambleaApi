@@ -216,7 +216,7 @@ public class AttendeesController : ControllerBase
     /// Acepta una intervención solicitada (solo admin)
     /// </summary>
     [HttpPost("{id}/accept-intervention")]
-    [Authorize(Roles = "Admin,User")]
+    [AllowAnonymous]
     public async Task<IActionResult> AcceptIntervention(int id)
     {
         try
@@ -244,7 +244,7 @@ public class AttendeesController : ControllerBase
     /// Cancela una intervención (solo admin)
     /// </summary>
     [HttpPost("{id}/cancel-intervention")]
-    [Authorize(Roles = "Admin,User")]
+    [AllowAnonymous]
     public async Task<IActionResult> CancelIntervention(int id)
     {
         try
@@ -304,7 +304,7 @@ public class AttendeesController : ControllerBase
     /// Obtiene lista de intervenciones pendientes (solo admin)
     /// </summary>
     [HttpGet("{meetingId}/pending-interventions")]
-    [Authorize(Roles = "Admin,User")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetPendingInterventions(int meetingId)
     {
         var list = await _attendeeService.GetPendingInterventionsAsync(meetingId);
@@ -353,7 +353,7 @@ public class AttendeesController : ControllerBase
 
     private async Task BroadcastMeetingAsync(int meetingId)
     {
-        var meetingDto = await _meetingService.GetMeetingUpdateDtoAsync(meetingId, includeAttendees: false);
+        var meetingDto = await _meetingService.GetMeetingUpdateDtoAsync(meetingId, includeAttendees: true);
         await _hubContext.Clients.Group(meetingId.ToString())
             .SendAsync("MeetingStatusUpdated", meetingDto);
     }

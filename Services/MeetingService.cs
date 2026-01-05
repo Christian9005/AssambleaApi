@@ -19,7 +19,7 @@ public class MeetingService : IMeetingService
     {
         var meeting = new Meeting
         {
-            Code = Guid.NewGuid().ToString("N").Substring(0, 6),
+            Code = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(),
             StartTime = DateTime.UtcNow,
             Status = MeetingStatus.Created
         };
