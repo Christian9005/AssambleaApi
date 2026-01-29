@@ -53,7 +53,7 @@ jobs:
             -d '{
               "appName": "assambleaapi",
               "repository": "${{ github.server_url }}/${{ github.repository }}",
-              "branch": "main"
+               "branch": "master"
             }' \
             "$DEPLOY_HOST/api/deploy" \
             -w "\n%{http_code}" \
