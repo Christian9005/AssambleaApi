@@ -1,0 +1,81 @@
+name: Deploy AssambleaApi
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check-commit:
+    name: Validate Commit Message
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check commit message for deploy keyword
+        id: check
+        run: |
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          
+          if echo "$COMMIT_MESSAGE" | grep -iE "^deploy|deploy:" || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "✓ Deploy keyword found in commit"
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "ℹ No deploy in commit message. Use 'deploy: ...' to trigger deployment"
+          fi
+
+  deploy:
+    name: Deploy to Zimaboard
+    runs-on: ubuntu-latest
+    if: needs.check-commit.outputs.should-deploy == 'true'
+    needs: check-commit
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy with DotDeploy
+        env:
+          DEPLOY_HOST: https://dotdeploy.codemeshdynamics.me
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          echo "🚀 Deploying AssambleaApi to Zimaboard..."
+          
+          RESPONSE=$(curl -X POST \
+            -H "Authorization: Bearer $DEPLOY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "appName": "assambleaapi",
+              "repository": "${{ github.server_url }}/${{ github.repository }}",
+              "branch": "main"
+            }' \
+            "$DEPLOY_HOST/api/deploy" \
+            -w "\n%{http_code}" \
+            -s)
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "Response Code: $HTTP_CODE"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Deployment triggered successfully"
+            echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          else
+            echo "❌ Deployment failed with HTTP $HTTP_CODE"
+            echo "$BODY"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "✅ AssambleaApi deployed successfully!"
+          echo "Service running on Zimaboard with SignalR + Background Service"
+          echo "PostgreSQL connection configured"
