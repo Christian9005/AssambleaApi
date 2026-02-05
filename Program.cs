@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,7 +116,15 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options => { });
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.WriteIndented = true;
+        if (options.JsonSerializerOptions.TypeInfoResolver == null)
+        {
+            options.JsonSerializerOptions.TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver();
+        }
+    });
 
 // CORS policy
 builder.Services.AddCors(options =>
