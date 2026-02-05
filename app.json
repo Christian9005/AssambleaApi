@@ -2,7 +2,7 @@
   "name": "assambleaapi",
   "entryPoint": "AssambleaApi",
   "port": 5300,
-  "domain": "asamblea.local",
+  "domain": "asamblea.codemeshdynamics.me",
   "dotnetVersion": "10.0",
   "environment": "Production",
   "healthCheckPath": "/health",
@@ -10,9 +10,12 @@
   "projectPath": ".",
   "environmentVariables": {
     "ASPNETCORE_ENVIRONMENT": "Production",
-    "ASPNETCORE_URLS": "http://0.0.0.0:5300"
+    "ASPNETCORE_URLS": "http://0.0.0.0:5300",
+    "JwtSettings__Issuer": "https://asamblea.codemeshdynamics.me",
+    "JwtSettings__Audience": "https://asamblea.codemeshdynamics.me"
   },
   "secrets": [
-    "ConnectionStrings__DefaultConnection"
+    "ConnectionStrings__DefaultConnection",
+    "JwtSettings__SecretKey"
   ]
 }
