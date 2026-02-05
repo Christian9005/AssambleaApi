@@ -13,12 +13,15 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar puerto para Railway
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
-builder.WebHost.ConfigureKestrel(serverOptions =>
+// Configurar puerto para Railway si PORT esta definido.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
 {
-    serverOptions.ListenAnyIP(int.Parse(port));
-});
+    builder.WebHost.ConfigureKestrel(serverOptions =>
+    {
+        serverOptions.ListenAnyIP(int.Parse(port));
+    });
+}
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -209,7 +212,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<MeetingHub>("/meetingHub").RequireCors("AllowFrontend");
 
-app.Logger.LogInformation("🚀 Asamblea API iniciada en el puerto {Port}", port);
+app.Logger.LogInformation("🚀 Asamblea API iniciada en el puerto {Port}", port ?? "(ASPNETCORE_URLS)");
 app.Logger.LogInformation("📖 Swagger UI disponible en: /swagger");
 app.Logger.LogInformation("🔐 Autenticación: JWT Bearer Token o Meeting Code");
 
